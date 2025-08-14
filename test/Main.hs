@@ -4,6 +4,7 @@ import HM.Lang
 
 import qualified HM.Subst as Subst
 import qualified HM.UnionFind as UF
+import qualified HM.Elab as Elab
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -25,6 +26,11 @@ tests =
     , testGroup "UnionFind"
       [ testCase name $ do
           res <- UF.inferTest term
+          Right expected @=?  res
+      | (name, term, expected) <- testCases ]
+    , testGroup "System F Elab"
+      [ testCase name $ do
+          res <- Elab.inferTest term
           Right expected @=?  res
       | (name, term, expected) <- testCases ]
     ]

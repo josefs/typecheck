@@ -61,7 +61,8 @@ library
     -- Modules exported by the library.
     exposed-modules:  BiSTLC, Dependent,
         HM.Lang, HM.Subst,
-        UnionFindIO, HM.UnionFind
+        UnionFindIO, HM.UnionFind,
+        HM.Elab
 
 
     -- Modules included in this library but not exported.

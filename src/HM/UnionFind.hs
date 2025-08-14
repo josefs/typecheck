@@ -2,7 +2,7 @@
 module HM.UnionFind where
 
 import qualified UnionFindIO as UF
-import HM.Lang (Term(..))
+import HM.Lang (Term(..), TermVar)
 import qualified HM.Lang as Lang
 
 import Control.Monad.State hiding (liftIO)
@@ -13,6 +13,22 @@ import qualified Data.Map as Map
 
 import System.IO
 
+-- Types
+
+data Type
+  = MetaTypeVar (UF.Var Type)
+  | TypeVar String
+  | TArrow Type Type
+  | TInt
+
+instance Show Type where
+  show (MetaTypeVar v) = "MetaTypeVar"
+  show (TypeVar v) = "TypeVar " ++ v
+  show (TArrow t1 t2) = "(" ++ show t1 ++ " -> " ++ show t2 ++ ")"
+  show TInt = "Int"
+
+data Scheme
+  = Forall [String] Type
 -- Typechecking Monad
 
 newtype TCM a = TCM { runTCM :: IO (Either String a) }
@@ -37,28 +53,28 @@ instance Monad TCM where
 instance MonadFail TCM where
   fail msg = TCM (pure (Left msg))
 
-newMetaTyVar :: TCM (UF.Var Type)
-newMetaTyVar = liftIO UF.newVar
+newMetaTyVar :: TCM Type
+newMetaTyVar = MetaTypeVar <$> liftIO UF.newVar
 
 debug :: String -> TCM ()
 debug msg = liftIO (hPutStrLn stderr msg)
 
--- Types
+-- Environment
 
-data Type
-  = MetaTypeVar (UF.Var Type)
-  | TypeVar String
-  | TArrow Type Type
-  | TInt
+type Env = Map TermVar Scheme
 
-instance Show Type where
-  show (MetaTypeVar v) = "MetaTypeVar"
-  show (TypeVar v) = "TypeVar " ++ v
-  show (TArrow t1 t2) = "(" ++ show t1 ++ " -> " ++ show t2 ++ ")"
-  show TInt = "Int"
+lookupEnv :: TermVar -> Env -> TCM Scheme
+lookupEnv x env =
+  case Map.lookup x env of
+    Just scheme -> return scheme
+    Nothing -> TCM $ return $ Left $ "Variable not found: " ++ x
 
-data Scheme
-  = Forall [String] Type
+updateEnv :: TermVar -> Scheme -> Env -> Env
+updateEnv x scheme env =
+  Map.insert x scheme env
+
+
+--  Working with types
 
 occursCheck :: UF.Var Type -> Type -> TCM ()
 occursCheck v (MetaTypeVar v') = TCM $ do
@@ -87,14 +103,14 @@ unify (TArrow t1 t2) (TArrow t3 t4) = do
 unify TInt TInt = return ()
 unify t1 t2 = TCM $ return $ Left $ "Type mismatch: " ++ show t1 ++ " vs " ++ show t2
 
-instantiate :: [String] -> Type -> TCM Type
-instantiate vars ty = do
+instantiate :: Scheme -> TCM Type
+instantiate (Forall vars ty) = do
   metaVars <- mapM (const newMetaTyVar) vars
   let subst = Map.fromList (zip vars metaVars)
   let applySubst (MetaTypeVar v) = MetaTypeVar v
       applySubst (TypeVar v) =
         case  Map.lookup v subst of
-          Just t -> MetaTypeVar t
+          Just t -> t
           Nothing -> TypeVar v
       applySubst (TArrow t1 t2) = TArrow (applySubst t1) (applySubst t2)
       applySubst TInt = TInt
@@ -152,38 +168,22 @@ generalize env ty = do
   let renamedTy = rename renames ty'
   return $ Forall quantVars renamedTy
 
--- Environment
-
-type Env = Map String Scheme
-
-lookupEnv :: String -> Env -> TCM Scheme
-lookupEnv x env =
-  case Map.lookup x env of
-    Just scheme -> return scheme
-    Nothing -> TCM $ return $ Left $ "Variable not found: " ++ x
-
-updateEnv :: String -> Scheme -> Env -> Env
-updateEnv x scheme env =
-  Map.insert x scheme env
-
 -- Type inference function
 
 inferType :: Env -> Term -> TCM Type
 inferType env (Var x) = do
-  Forall vars ty <- lookupEnv x env
-  instantiate vars ty
+  scheme <- lookupEnv x env
+  instantiate scheme
 inferType _env (Int _) = return TInt
 inferType env (App t1 t2) = do
   t1Type <- inferType env t1
   t2Type <- inferType env t2
-  resTypeMeta <- newMetaTyVar
-  let resType = MetaTypeVar resTypeMeta
+  resType <- newMetaTyVar
   unify t1Type (TArrow t2Type resType)
   return resType
 inferType env (Lam x body) = do
-  xVar <- newMetaTyVar
+  xType <- newMetaTyVar
   let
-    xType = MetaTypeVar xVar
     newEnv = updateEnv x (Forall [] xType) env
   bodyType <- inferType newEnv body
   return $ TArrow xType bodyType
