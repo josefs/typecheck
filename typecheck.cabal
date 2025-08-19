@@ -62,7 +62,7 @@ library
     exposed-modules:  BiSTLC, Dependent,
         HM.Lang, HM.Subst,
         UnionFindIO, HM.UnionFind,
-        HM.Elab
+        HM.Elab, HM.LevelEager
 
 
     -- Modules included in this library but not exported.
@@ -72,7 +72,7 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.19.1.0, lens, containers, mtl
+    build-depends:    base ^>=4.19.1.0, lens, containers, mtl, transformers
 
     -- Directories containing source files.
     hs-source-dirs:   src
