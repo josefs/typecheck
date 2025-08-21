@@ -104,6 +104,7 @@ unify TInt TInt = return ()
 unify t1 t2 = TCM $ return $ Left $ "Type mismatch: " ++ show t1 ++ " vs " ++ show t2
 
 instantiate :: Scheme -> TCM Type
+instantiate (Forall [] ty) = return ty
 instantiate (Forall vars ty) = do
   metaVars <- mapM (const newMetaTyVar) vars
   let subst = Map.fromList (zip vars metaVars)

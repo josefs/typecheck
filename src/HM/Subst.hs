@@ -89,6 +89,7 @@ generalize ty env subst =
     Forall genVars ty
 
 instantiate :: TypeScheme -> Int -> (Type, Int)
+instantiate (Forall [] t) name = (t, name)
 instantiate (Forall vars t) name = (applySubst subst t, newName)
   where
     newName = name + length vars
