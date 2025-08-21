@@ -143,6 +143,8 @@ instantiateHelp :: Type -> Term -> [(String, Type)] -> TCM (Term, Type)
 instantiateHelp (TyForall var ty) term subst = do
   metaVar <- newMetaTyVar
   instantiateHelp ty (TyApp term metaVar) ((var,metaVar):subst)
+instantiateHelp ty term [] =
+  return (term, ty) -- Optimization: No need to apply an empty substitution
 instantiateHelp ty term subst = do
   let
       applySubst (MetaTyVar v) = MetaTyVar v
