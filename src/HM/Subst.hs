@@ -137,3 +137,10 @@ inferMain term = do
   let subst = Map.empty :: Subst
   (ty, subst', _) <- infer env subst 0 term
   return (applySubst subst' ty, subst')
+
+-- Test functions
+
+inferTest :: Term -> IO (Either String Type)
+inferTest term = case inferMain term of
+  Right (ty, _) -> return $ Right (normalizeType ty)
+  Left s -> return $ Left s

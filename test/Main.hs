@@ -9,36 +9,28 @@ import qualified HM.LevelEager as LE
 
 import Test.Tasty
 import Test.Tasty.HUnit
+import Data.Either (Either)
 
 main :: IO ()
 main = do
   defaultMain tests
 
-inferTest :: Term -> Either String Type
-inferTest term = case Subst.inferMain term of
-  Right (ty, _) -> Right (normalizeType ty)
-  Left s -> Left s
+hmTestGroup :: String -> (Term -> IO (Either String Type)) -> [(String, Term, Type)] -> TestTree
+hmTestGroup groupName inferFunc testCases =
+  testGroup groupName
+    [ testCase name $ do
+        res <- inferFunc term
+        Right expected @=?  res
+    | (name, term, expected) <- testCases ]
 
 tests :: TestTree
 tests =
-  testGroup "Hindley-Milner Type Inference Tests"
-    [ testGroup "Subst"
-      [ testCase name $ Right expected @=? inferTest term | (name, term, expected) <- testCases ]
-    , testGroup "UnionFind"
-      [ testCase name $ do
-          res <- UF.inferTest term
-          Right expected @=?  res
-      | (name, term, expected) <- testCases ]
-    , testGroup "System F Elab"
-      [ testCase name $ do
-          res <- Elab.inferTest term
-          Right expected @=?  res
-      | (name, term, expected) <- testCases ]
-    , testGroup "Level Eager"
-      [ testCase name $ do
-          res <- LE.inferTest term
-          Right expected @=?  res
-      | (name, term, expected) <- testCases ]
+  testGroup "Hindley-Milner Type Inference Tests" $
+  map ($ testCases)
+    [ hmTestGroup "Subst" Subst.inferTest
+    , hmTestGroup "UnionFind" UF.inferTest
+    , hmTestGroup "System F Elab" Elab.inferTest
+    , hmTestGroup "Level Eager" LE.inferTest
     ]
 
 testCases :: [(String, Term, Type)]
